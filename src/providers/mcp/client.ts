@@ -42,8 +42,21 @@ interface OAuthServerConfig {
  * override an inherited variable (e.g. a scoped token) without unsetting the rest.
  */
 function getStdioEnv(server: MCPServerConfig): Record<string, string> {
-  const parentEnv = process.env as Record<string, string>;
-  return server.env ? { ...parentEnv, ...server.env } : parentEnv;
+  const parentEnv = { ...(process.env as Record<string, string>) };
+  if (!server.env) {
+    return parentEnv;
+  }
+  if (process.platform === 'win32') {
+    for (const overrideKey of Object.keys(server.env)) {
+      const lowerKey = overrideKey.toLowerCase();
+      for (const parentKey of Object.keys(parentEnv)) {
+        if (parentKey.toLowerCase() === lowerKey && parentKey !== overrideKey) {
+          delete parentEnv[parentKey];
+        }
+      }
+    }
+  }
+  return { ...parentEnv, ...server.env };
 }
 
 /**

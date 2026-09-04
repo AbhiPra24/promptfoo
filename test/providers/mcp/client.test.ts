@@ -294,6 +294,41 @@ describe('MCPClient', () => {
       vi.unstubAllEnvs();
     });
 
+    it('should handle Windows case-insensitive env key overrides properly', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+      try {
+        mockClient.connect.mockResolvedValueOnce(undefined);
+        mockClient.listTools.mockResolvedValueOnce({
+          tools: [{ name: 'tool1', description: 'desc1', inputSchema: {} }],
+        });
+        vi.stubEnv('Path', 'inherited_path_value');
+
+        mcpClient = new MCPClient({
+          enabled: true,
+          server: {
+            name: 'win-override',
+            command: 'npm',
+            args: ['start'],
+            env: { PATH: 'custom_path_override' },
+          },
+        });
+
+        await mcpClient.initialize();
+
+        const passedEnv = vi.mocked(StdioClientTransport).mock.calls[0][0].env as Record<
+          string,
+          string
+        >;
+        expect(passedEnv.PATH).toBe('custom_path_override');
+        expect(passedEnv.Path).toBeUndefined();
+        await mcpClient.cleanup();
+        vi.unstubAllEnvs();
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
+      }
+    });
+
     it('should initialize with multiple servers', async () => {
       // Reset mocks for this test
       mockClient.connect.mockResolvedValue(undefined);
